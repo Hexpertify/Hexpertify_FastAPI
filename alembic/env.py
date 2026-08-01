@@ -13,6 +13,7 @@ from app.models.user import User
 from app.models.permission import Permission
 from app.models.menu import Menu
 from app.models.user_role import UserRole
+from app.models.role_permission import RolePermission
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
