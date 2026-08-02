@@ -1,0 +1,70 @@
+import uuid
+from datetime import datetime, timedelta, timezone
+from fastapi import HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.repositories.auth_repository import AuthRepository
+from app.repositories.user_repository import UserRepository
+from app.core.config import settings
+from app.utils.hashing import verify_password, hash_password
+from app.utils.jwt import create_access_token, create_refresh_token_value, decode_access_token
+
+
+class AuthService:
+    def __init__(self, db: AsyncSession):
+        self.auth_repo = AuthRepository(db)
+        self.user_repo = UserRepository(db)
+
+    async def login(self, email: str, password: str):
+        user = await self.user_repo.get_by_email(email)
+        if not user or not verify_password(password, user.password_hash):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
+        if not user.is_active:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is inactive")
+
+        access_token = create_access_token(user.id)
+        refresh_token_value = create_refresh_token_value()
+        expires_at = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+        await self.auth_repo.store_refresh_token(user.id, refresh_token_value, expires_at)
+
+        return {"access_token": access_token, "refresh_token": refresh_token_value, "token_type": "bearer"}
+
+    async def refresh(self, refresh_token_value: str):
+        stored_token = await self.auth_repo.get_refresh_token(refresh_token_value)
+        if not stored_token or stored_token.is_revoked:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+
+        expires_at = stored_token.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at < datetime.now(timezone.utc):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token expired")
+
+        await self.auth_repo.revoke_refresh_token(stored_token)
+
+        new_access_token = create_access_token(stored_token.user_id)
+        new_refresh_token_value = create_refresh_token_value()
+        new_expires_at = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+        await self.auth_repo.store_refresh_token(stored_token.user_id, new_refresh_token_value, new_expires_at)
+
+        return {"access_token": new_access_token, "refresh_token": new_refresh_token_value, "token_type": "bearer"}
+
+    async def logout(self, refresh_token_value: str):
+        stored_token = await self.auth_repo.get_refresh_token(refresh_token_value)
+        if stored_token:
+            await self.auth_repo.revoke_refresh_token(stored_token)
+
+    async def get_current_user(self, token: str):
+        payload = decode_access_token(token)
+        if not payload:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+        user_id = uuid.UUID(payload["sub"])
+        user = await self.user_repo.get_by_id(user_id)
+        if not user or not user.is_active:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
+        return user
+
+    async def change_password(self, user, old_password: str, new_password: str):
+        if not verify_password(old_password, user.password_hash):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Old password is incorrect")
+        user.password_hash = hash_password(new_password)
+        await self.auth_repo.db.commit()
