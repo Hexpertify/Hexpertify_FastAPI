@@ -32,12 +32,21 @@ async def create_role(
 
 
 @router.put("/{role_id}", response_model=RoleOut)
-async def update_role(role_id: uuid.UUID, data: RoleUpdate, db: AsyncSession = Depends(get_db)):
+async def update_role(
+    role_id: uuid.UUID,
+    data: RoleUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_roles("ADMIN", "SUPER_ADMIN")),
+):
     service = RoleService(db)
     return await service.update_role(role_id, data)
 
 
 @router.delete("/{role_id}", status_code=204)
-async def delete_role(role_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def delete_role(
+    role_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_roles("ADMIN", "SUPER_ADMIN")),
+):
     service = RoleService(db)
     await service.delete_role(role_id)

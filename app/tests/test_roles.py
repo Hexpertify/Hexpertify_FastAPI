@@ -53,7 +53,7 @@ async def test_update_role(client, admin_token):
     create_resp = await client.post("/api/v1/roles/", json={"code": "UPDATE_TEST", "name": "Before Update"}, headers=headers)
     role_id = create_resp.json()["id"]
 
-    response = await client.put(f"/api/v1/roles/{role_id}", json={"name": "After Update"})
+    response = await client.put(f"/api/v1/roles/{role_id}", json={"name": "After Update"}, headers=headers)
     assert response.status_code == 200
     assert response.json()["name"] == "After Update"
 
@@ -63,7 +63,7 @@ async def test_delete_role(client, admin_token):
     create_resp = await client.post("/api/v1/roles/", json={"code": "DELETE_TEST", "name": "Delete Test"}, headers=headers)
     role_id = create_resp.json()["id"]
 
-    delete_resp = await client.delete(f"/api/v1/roles/{role_id}")
+    delete_resp = await client.delete(f"/api/v1/roles/{role_id}", headers=headers)
     assert delete_resp.status_code == 204
 
     get_resp = await client.get(f"/api/v1/roles/{role_id}")

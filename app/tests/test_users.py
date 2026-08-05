@@ -63,7 +63,8 @@ async def test_list_users(client):
     assert len(response.json()) >= 1
 
 
-async def test_update_user(client):
+async def test_update_user(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
     create_resp = await client.post("/api/v1/users/", json={
         "first_name": "Before",
         "last_name": "Update",
@@ -72,12 +73,13 @@ async def test_update_user(client):
     })
     user_id = create_resp.json()["id"]
 
-    response = await client.put(f"/api/v1/users/{user_id}", json={"first_name": "After"})
+    response = await client.put(f"/api/v1/users/{user_id}", json={"first_name": "After"}, headers=headers)
     assert response.status_code == 200
     assert response.json()["first_name"] == "After"
 
 
-async def test_delete_user(client):
+async def test_delete_user(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
     create_resp = await client.post("/api/v1/users/", json={
         "first_name": "Delete",
         "last_name": "Test",
@@ -86,7 +88,7 @@ async def test_delete_user(client):
     })
     user_id = create_resp.json()["id"]
 
-    delete_resp = await client.delete(f"/api/v1/users/{user_id}")
+    delete_resp = await client.delete(f"/api/v1/users/{user_id}", headers=headers)
     assert delete_resp.status_code == 204
 
     get_resp = await client.get(f"/api/v1/users/{user_id}")
