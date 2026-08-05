@@ -3,11 +3,9 @@ import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-
+from sqlalchemy.pool import NullPool
 from app.main import app
 from app.core.database import Base, get_db
-from sqlalchemy.pool import NullPool
-
 
 TEST_DATABASE_URL = "postgresql+asyncpg://postgres:0108@localhost:5432/rbac_test_db"
 
@@ -37,3 +35,34 @@ async def client():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
+
+
+@pytest_asyncio.fixture
+async def admin_token(client):
+    async with TestSessionLocal() as session:
+        from app.models.role import Role
+        from app.models.user import User
+        from app.models.user_role import UserRole
+        from app.utils.hashing import hash_password
+        import uuid
+
+        role = Role(id=uuid.uuid4(), code="ADMIN", name="Admin")
+        user = User(
+            id=uuid.uuid4(),
+            first_name="Admin",
+            last_name="User",
+            email="admin_fixture@example.com",
+            password_hash=hash_password("adminpass123"),
+        )
+        session.add(role)
+        session.add(user)
+        await session.flush()
+
+        session.add(UserRole(user_id=user.id, role_id=role.id))
+        await session.commit()
+
+    login_resp = await client.post("/api/v1/auth/login", json={
+        "email": "admin_fixture@example.com", "password": "adminpass123"
+    })
+    token = login_resp.json()["access_token"]
+    return token

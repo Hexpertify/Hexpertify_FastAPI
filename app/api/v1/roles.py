@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.services.role_service import RoleService
 from app.schemas.role import RoleCreate, RoleUpdate, RoleOut
+from app.permissions.decorators import require_roles
 
 router = APIRouter(prefix="/roles", tags=["Roles"])
 
@@ -21,7 +22,11 @@ async def get_role(role_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/", response_model=RoleOut, status_code=201)
-async def create_role(data: RoleCreate, db: AsyncSession = Depends(get_db)):
+async def create_role(
+    data: RoleCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_roles("ADMIN", "SUPER_ADMIN")),
+):
     service = RoleService(db)
     return await service.create_role(data)
 
