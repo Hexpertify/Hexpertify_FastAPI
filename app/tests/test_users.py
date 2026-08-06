@@ -93,3 +93,14 @@ async def test_delete_user(client, admin_token):
 
     get_resp = await client.get(f"/api/v1/users/{user_id}")
     assert get_resp.status_code == 404
+
+async def test_update_user_status(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    create_resp = await client.post("/api/v1/users/", json={
+        "first_name": "Status", "last_name": "Test", "email": "statustest@example.com", "password": "testpass123"
+    })
+    user_id = create_resp.json()["id"]
+
+    response = await client.patch(f"/api/v1/users/{user_id}/status", json={"is_active": False}, headers=headers)
+    assert response.status_code == 200
+    assert response.json()["is_active"] is False

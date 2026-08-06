@@ -35,3 +35,10 @@ class UserService:
     async def delete_user(self, user_id: uuid.UUID):
         user = await self.get_user(user_id)
         await self.repo.delete(user)
+
+    async def update_status(self, user_id: uuid.UUID, is_active: bool):
+        user = await self.get_user(user_id)
+        user.is_active = is_active
+        await self.repo.db.commit()
+        await self.repo.db.refresh(user)
+        return user

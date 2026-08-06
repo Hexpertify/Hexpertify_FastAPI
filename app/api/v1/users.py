@@ -5,6 +5,7 @@ from app.core.database import get_db
 from app.services.user_service import UserService
 from app.schemas.user import UserCreate, UserUpdate, UserOut
 from app.permissions.decorators import require_roles
+from app.schemas.user import UserCreate, UserUpdate, UserOut, UserStatusUpdate
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -36,6 +37,16 @@ async def update_user(
 ):
     service = UserService(db)
     return await service.update_user(user_id, data)
+
+@router.patch("/{user_id}/status", response_model=UserOut)
+async def update_user_status(
+    user_id: uuid.UUID,
+    data: UserStatusUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_roles("ADMIN", "SUPER_ADMIN")),
+):
+    service = UserService(db)
+    return await service.update_status(user_id, data.is_active)
 
 
 @router.delete("/{user_id}", status_code=204)
