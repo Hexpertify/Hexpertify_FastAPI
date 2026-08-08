@@ -17,6 +17,7 @@ from app.models.role_permission import RolePermission
 from app.models.role_menu import RoleMenu
 from app.models.refresh_token import RefreshToken
 from app.models.password_reset_token import PasswordResetToken
+from app.models.audit_log import AuditLog
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
