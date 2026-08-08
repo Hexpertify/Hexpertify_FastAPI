@@ -113,3 +113,45 @@ async def test_change_password_wrong_old_password_fails(client):
         headers={"Authorization": f"Bearer {access_token}"}
     )
     assert response.status_code == 400
+
+async def test_forgot_password_existing_user(client):
+    email, password = await _create_user(client, "forgot1@example.com")
+    response = await client.post("/api/v1/auth/forgot-password", json={"email": email})
+    assert response.status_code == 200
+    assert "debug_token" in response.json()
+
+
+async def test_forgot_password_nonexistent_user_still_200(client):
+    response = await client.post("/api/v1/auth/forgot-password", json={"email": "doesnotexist999@example.com"})
+    assert response.status_code == 200
+
+
+async def test_reset_password_success(client):
+    email, password = await _create_user(client, "reset1@example.com", "oldpass123")
+    forgot_resp = await client.post("/api/v1/auth/forgot-password", json={"email": email})
+    token = forgot_resp.json()["debug_token"]
+
+    reset_resp = await client.post("/api/v1/auth/reset-password", json={
+        "token": token, "new_password": "brandnewpass456"
+    })
+    assert reset_resp.status_code == 204
+
+    login_resp = await client.post("/api/v1/auth/login", json={"email": email, "password": "brandnewpass456"})
+    assert login_resp.status_code == 200
+
+
+async def test_reset_password_reuse_fails(client):
+    email, password = await _create_user(client, "reset2@example.com")
+    forgot_resp = await client.post("/api/v1/auth/forgot-password", json={"email": email})
+    token = forgot_resp.json()["debug_token"]
+
+    await client.post("/api/v1/auth/reset-password", json={"token": token, "new_password": "newpass1"})
+    response = await client.post("/api/v1/auth/reset-password", json={"token": token, "new_password": "newpass2"})
+    assert response.status_code == 400
+
+
+async def test_reset_password_invalid_token_fails(client):
+    response = await client.post("/api/v1/auth/reset-password", json={
+        "token": "totally-invalid-token", "new_password": "newpass123"
+    })
+    assert response.status_code == 400
