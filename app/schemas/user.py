@@ -29,3 +29,6 @@ class UserOut(UserBase):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+
+class UserStatusUpdate(BaseModel):
+    is_active: bool
